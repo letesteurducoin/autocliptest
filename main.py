@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime, date
 
+# Ajoute le dossier scripts au PYTHONPATH
 sys.path.append(os.path.join(os.path.dirname(__file__), 'scripts'))
 
 import get_top_clips
@@ -13,12 +14,13 @@ from classify_clip_type import classify_clip_type
 from process_video_gameplay import process_gameplay_clip
 from process_video_chatting import process_chatting_clip
 
+# Dossiers et fichiers
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 os.makedirs(DATA_DIR, exist_ok=True)
 
 PUBLISHED_HISTORY_FILE = os.path.join(DATA_DIR, 'published_shorts_history.json')
-RAW_CLIP_PATH = os.path.join(DATA_DIR, 'temp_raw_clip.mp4')
-PROCESSED_CLIP_PATH = os.path.join(DATA_DIR, 'temp_processed_short.mp4')
+RAW_CLIP_PATH        = os.path.join(DATA_DIR, 'temp_raw_clip.mp4')
+PROCESSED_CLIP_PATH  = os.path.join(DATA_DIR, 'temp_processed_short.mp4')
 
 NUMBER_OF_CLIPS_TO_ATTEMPT_TO_PUBLISH = 3
 
@@ -53,69 +55,78 @@ def main():
     history = load_published_history()
     today_published_ids = get_today_published_ids(history)
 
-    clips_attempted_in_this_run = []
+    clips_attempted = []
     twitch_token = get_top_clips.get_twitch_access_token()
     if not twitch_token:
         return
 
-    eligible_clips_list = get_top_clips.get_eligible_short_clips(
+    eligible_clips = get_top_clips.get_eligible_short_clips(
         access_token=twitch_token,
         num_clips_per_source=50,
         days_ago=1,
         already_published_clip_ids=today_published_ids
     )
-    if not eligible_clips_list:
+    if not eligible_clips:
         return
 
-    clips_published_count = 0
-    for selected_clip in eligible_clips_list:
-        if clips_published_count >= NUMBER_OF_CLIPS_TO_ATTEMPT_TO_PUBLISH:
+    published_count = 0
+    for clip in eligible_clips:
+        if published_count >= NUMBER_OF_CLIPS_TO_ATTEMPT_TO_PUBLISH:
             break
 
-        if selected_clip['id'] in clips_attempted_in_this_run or selected_clip['id'] in today_published_ids:
+        if clip['id'] in clips_attempted or clip['id'] in today_published_ids:
             continue
+        clips_attempted.append(clip['id'])
 
-        clips_attempted_in_this_run.append(selected_clip['id'])
-        downloaded_file = download_clip.download_twitch_clip(selected_clip['url'], RAW_CLIP_PATH)
+        downloaded_file = download_clip.download_twitch_clip(clip['url'], RAW_CLIP_PATH)
         if not downloaded_file:
             continue
 
-        clip_type = classify_clip_type(selected_clip)
+        # Debug : quel game_name on analyse ?
+        raw_game = clip.get('game_name')
+        print(f"ℹ️  game_name brut du clip : {raw_game!r}")
+
+        # Classification
+        clip_type = classify_clip_type(clip)
         print(f"📂 Type de clip détecté : {clip_type}")
 
+        # Choix du traitement
         if clip_type == "chatting":
-            processed_file_path_returned = process_chatting_clip(
+            print("🛠️  Application du traitement JUST CHATTING")
+            processed = process_chatting_clip(
                 input_path=downloaded_file,
                 output_path=PROCESSED_CLIP_PATH,
                 max_duration_seconds=get_top_clips.MAX_VIDEO_DURATION_SECONDS,
-                clip_data=selected_clip
+                clip_data=clip
             )
         else:
-            processed_file_path_returned = process_gameplay_clip(
+            print("🛠️  Application du traitement GAMEPLAY")
+            processed = process_gameplay_clip(
                 input_path=downloaded_file,
                 output_path=PROCESSED_CLIP_PATH,
                 max_duration_seconds=get_top_clips.MAX_VIDEO_DURATION_SECONDS,
-                clip_data=selected_clip
+                clip_data=clip
             )
 
-        if not processed_file_path_returned:
+        if not processed:
             continue
 
-        youtube_metadata = generate_metadata.generate_youtube_metadata(selected_clip)
+        # Génération des métadonnées
+        metadata = generate_metadata.generate_youtube_metadata(clip)
 
-        # youtube_service = upload_youtube.get_authenticated_service()
-        # youtube_video_id = upload_youtube.upload_youtube_short(youtube_service, processed_file_path_returned, youtube_metadata)
-        youtube_service = None
-        youtube_video_id = f"TEST-{selected_clip['id']}"
-        print("🚫 Upload YouTube désactivé pour les tests. Vidéo non publiée.")
+        # Upload désactivé pour test
+        # service = upload_youtube.get_authenticated_service()
+        # video_id = upload_youtube.upload_youtube_short(service, processed, metadata)
+        video_id = f"TEST-{clip['id']}"
+        print("🚫 Upload YouTube désactivé pour les tests.")
 
-        if youtube_video_id:
-            add_to_history(history, selected_clip['id'], youtube_video_id)
+        if video_id:
+            add_to_history(history, clip['id'], video_id)
             save_published_history(history)
             today_published_ids = get_today_published_ids(history)
-            clips_published_count += 1
+            published_count += 1
 
-    print(f"\n🎉 {clips_published_count} Short(s) traité(s) avec succès.")
+    print(f"\n🎉 {published_count} Short(s) traité(s) avec succès.")
 
 if __name__ == "__main__":
     main()
