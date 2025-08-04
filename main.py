@@ -9,7 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'scripts'))
 import get_top_clips
 import download_clip
 import generate_metadata
-# import upload_youtube  # temporairement désactivé
+import upload_youtube
 from classify_clip_type import classify_clip_type
 from process_video_gameplay import process_gameplay_clip
 from process_video_chatting import process_chatting_clip
@@ -19,8 +19,8 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 os.makedirs(DATA_DIR, exist_ok=True)
 
 PUBLISHED_HISTORY_FILE = os.path.join(DATA_DIR, 'published_shorts_history.json')
-RAW_CLIP_PATH        = os.path.join(DATA_DIR, 'temp_raw_clip.mp4')
-PROCESSED_CLIP_PATH  = os.path.join(DATA_DIR, 'temp_processed_short.mp4')
+RAW_CLIP_PATH         = os.path.join(DATA_DIR, 'temp_raw_clip.mp4')
+PROCESSED_CLIP_PATH   = os.path.join(DATA_DIR, 'temp_processed_short.mp4')
 
 NUMBER_OF_CLIPS_TO_ATTEMPT_TO_PUBLISH = 3
 
@@ -93,7 +93,7 @@ def main():
         # Choix du traitement
         if clip_type == "chatting":
             print("🛠️  Application du traitement JUST CHATTING")
-            processed = process_gameplay_clip( # Remettre process_chatting_clip() si Anyme fait un jour autre chose que du Just Chatting
+            processed = process_chatting_clip(
                 input_path=downloaded_file,
                 output_path=PROCESSED_CLIP_PATH,
                 max_duration_seconds=get_top_clips.MAX_VIDEO_DURATION_SECONDS,
@@ -114,11 +114,18 @@ def main():
         # Génération des métadonnées
         metadata = generate_metadata.generate_youtube_metadata(clip)
 
-        # Upload désactivé pour test
-        # service = upload_youtube.get_authenticated_service()
-        # video_id = upload_youtube.upload_youtube_short(service, processed, metadata)
-        video_id = f"TEST-{clip['id']}"
-        print("🚫 Upload YouTube désactivé pour les tests.")
+        # Upload YouTube activé
+        try:
+            youtube_service = upload_youtube.get_authenticated_service()
+            video_id = upload_youtube.upload_youtube_short(
+                youtube_service,
+                processed,
+                metadata
+            )
+            print(f"🎉 Short YouTube publié ! ID: {video_id}")
+        except Exception as e:
+            print(f"❌ Erreur lors de l'upload YouTube : {e}")
+            video_id = None
 
         if video_id:
             add_to_history(history, clip['id'], video_id)
