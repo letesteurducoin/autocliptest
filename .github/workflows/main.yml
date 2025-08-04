@@ -10,46 +10,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.9'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
 
-    - name: Install system dependencies (ffmpeg, ImageMagick)
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg imagemagick
+      - name: Install system dependencies (ffmpeg, ImageMagick)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick
 
-    - name: Configure ImageMagick policy
-      run: |
-        POLICY_FILE="/etc/ImageMagick-6/policy.xml"
-        sudo cp $POLICY_FILE ${POLICY_FILE}.bak
-        sudo sed -i 's#<policy domain=".*" rights="none" pattern=".*"/>#<policy domain="coder" rights="read|write" pattern="*" />#g' $POLICY_FILE
+      - name: Configure ImageMagick policy
+        run: |
+          POLICY_FILE="/etc/ImageMagick-6/policy.xml"
+          sudo cp $POLICY_FILE ${POLICY_FILE}.bak
+          sudo sed -i 's#<policy domain=".*" rights="none" pattern=".*"/>#<policy domain="coder" rights="read|write" pattern="*" />#g' $POLICY_FILE
 
-    - name: Install Python dependencies
-      run: |
-        pip install -r requirements.txt
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
 
-    - name: Create client_secret.json
-      run: |
-        echo '${{ secrets.GOOGLE_CLIENT_SECRET_JSON }}' > client_secret.json
+      # Création des fichiers de credentials pour YouTube
+      - name: Create client_secret.json
+        run: echo '${{ secrets.GOOGLE_CLIENT_SECRET_JSON }}' > client_secret.json
 
-    - name: Create token.json
-      run: |
-        echo '${{ secrets.YOUTUBE_API_TOKEN_JSON }}' > token.json
+      - name: Create token.json
+        run: echo '${{ secrets.YOUTUBE_API_TOKEN_JSON }}' > token.json
 
-    - name: Run main script
-      run: python main.py
-      env:
-        TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
-        TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+      - name: Run main script
+        run: python main.py
+        env:
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          GOOGLE_APPLICATION_CREDENTIALS: client_secret.json
 
-    - name: Upload processed video
-      uses: actions/upload-artifact@v4
-      with:
-        name: processed-short
-        path: data/temp_processed_short.mp4
-        if-no-files-found: warn
+      - name: Upload processed video
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-short
+          path: data/temp_processed_short.mp4
+          if-no-files-found: warn
