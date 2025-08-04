@@ -93,7 +93,7 @@ def main():
         # Choix du traitement
         if clip_type == "chatting":
             print("🛠️  Application du traitement JUST CHATTING")
-            processed = process_chatting_clip(
+            processed = process_gameplay_clip( # Remettre process_chatting_clip() si Anyme fait un jour autre chose que du Just Chatting
                 input_path=downloaded_file,
                 output_path=PROCESSED_CLIP_PATH,
                 max_duration_seconds=get_top_clips.MAX_VIDEO_DURATION_SECONDS,
