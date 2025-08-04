@@ -4,15 +4,11 @@ import os
 import requests
 from get_top_clips import get_twitch_access_token
 
-# Endpoints Twitch
-HELIX_GAMES_URL = "https://api.twitch.tv/helix/games"
-HELIX_CLIPS_URL = "https://api.twitch.tv/helix/clips"
-CLIENT_ID       = os.getenv("TWITCH_CLIENT_ID")
+CLIENT_ID        = os.getenv("TWITCH_CLIENT_ID")
+HELIX_GAMES_URL  = "https://api.twitch.tv/helix/games"
+HELIX_CLIPS_URL  = "https://api.twitch.tv/helix/clips"
 
-def fetch_game_name_from_id(game_id, token):
-    """
-    Récupère le nom du jeu via son game_id avec l'API Helix /games.
-    """
+def fetch_game_name(game_id, token):
     headers = {
         "Client-ID": CLIENT_ID,
         "Authorization": f"Bearer {token}"
@@ -24,10 +20,7 @@ def fetch_game_name_from_id(game_id, token):
         return data[0].get("name")
     return None
 
-def fetch_game_id_from_clip_id(clip_id, token):
-    """
-    Si clip_data['game_id'] est absent, on va chercher le clip complet.
-    """
+def fetch_game_id(clip_id, token):
     headers = {
         "Client-ID": CLIENT_ID,
         "Authorization": f"Bearer {token}"
@@ -43,25 +36,27 @@ def classify_clip_type(clip_data):
     """
     Renvoie 'chatting' si Just Chatting, 'gameplay' sinon.
     """
-    token   = get_twitch_access_token()
+    token = get_twitch_access_token()
+
+    # 1️⃣ Game ID (depuis clip_data ou en fetchant)
     game_id = clip_data.get("game_id")
+    print(f"🔍 Debug classify: clip_id={clip_data['id']}, initial game_id={game_id!r}")
 
-    # 1) Si pas de game_id, on essaye de récupérer via l'API
     if not game_id:
-        game_id = fetch_game_id_from_clip_id(clip_data["id"], token)
+        game_id = fetch_game_id(clip_data["id"], token)
+        print(f"🔄 Game ID récupéré via API clips: {game_id!r}")
 
-    # 2) Si on a un game_id, on récupère le nom
+    # 2️⃣ Game Name
     game_name = None
     if game_id:
-        game_name = fetch_game_name_from_id(game_id, token)
+        game_name = fetch_game_name(game_id, token)
+    print(f"🔍 Debug classify: final game_name={game_name!r}")
 
-    # 3) Classification par défaut
-    if game_name:
-        name_lower = game_name.lower()
-        if "just chatting" in name_lower:
-            return "chatting"
-        else:
-            return "gameplay"
-    else:
-        # Si pas de jeu associé => on considère que c'est du chat
+    # 3️⃣ Classification
+    if game_name and game_name.lower() == "just chatting":
         return "chatting"
+    elif not game_name:
+        # Si pas de jeu détecté on considère chatting  
+        return "chatting"
+    else:
+        return "gameplay"
